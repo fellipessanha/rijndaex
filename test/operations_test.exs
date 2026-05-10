@@ -1,6 +1,6 @@
 defmodule OperationsTest do
   use ExUnit.Case
-  doctest Rijndaex.Operations.MixColumns
-  doctest Rijndaex.Operations.ShiftRow
-  doctest Rijndaex.Operations.SubBytes
+  doctest Operations.MixColumns
+  doctest Operations.ShiftRow
+  doctest Operations.SubBytes
 end

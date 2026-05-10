@@ -1,19 +1,19 @@
-defmodule Rijndaex.Operations.MixColumns do
+defmodule Operations.MixColumns do
   @moduledoc """
   Specific _multiplication_ operation used in this algorithm.
 
   it's a mix of bitwise xors and rightshifts in b operation.
 
-    iex> Rijndaex.Operations.MixColumns.apply([99, 71, 162, 240])
+    iex> Operations.MixColumns.apply([99, 71, 162, 240])
     [93, 224, 112, 187]
 
-    iex> Rijndaex.Operations.MixColumns.revert([93, 224, 112, 187])
+    iex> Operations.MixColumns.revert([93, 224, 112, 187])
     [99, 71, 162, 240]
 
-    iex> Rijndaex.Operations.MixColumns.apply([242, 10, 34, 92])
+    iex> Operations.MixColumns.apply([242, 10, 34, 92])
     [159, 220, 88, 157]
 
-    iex> Rijndaex.Operations.MixColumns.revert([159, 220, 88, 157])
+    iex> Operations.MixColumns.revert([159, 220, 88, 157])
     [242, 10, 34, 92]
   """
   import Bitwise, only: [&&&: 2, <<<: 2, >>>: 2, bxor: 2]

@@ -1,4 +1,4 @@
-defmodule Rijndaex.Operations.ShiftRow do
+defmodule Operations.ShiftRow do
   @moduledoc """
   Shifts the ith row by i elements.
 
@@ -13,21 +13,25 @@ defmodule Rijndaex.Operations.ShiftRow do
     ...>   [21, 22, 23,],
     ...>   [31, 32, 33]
     ...> ]
-    iex> Rijndaex.Operations.ShiftRow.apply(matrix)
+    iex> Operations.ShiftRow.apply(matrix)
     [[11, 12, 13], [22, 23, 21], [33, 31, 32]]
-    iex> matrix |> Rijndaex.Operations.ShiftRow.apply() |> Rijndaex.Operations.ShiftRow.revert() == matrix
+    iex> matrix |> Operations.ShiftRow.apply() |> Operations.ShiftRow.revert() == matrix
     true
   """
 
   def apply(rows) do
     for {row, i} <- Enum.with_index(rows) do
-      row |> Enum.split(i) |> (fn {l, r} -> r ++ l end).()
+      rotate(row, i)
     end
   end
 
   def revert(rows) do
     for {row, i} <- Enum.with_index(rows) do
-      row |> Enum.split(-i) |> (fn {l, r} -> r ++ l end).()
+      rotate(row, -i)
     end
+  end
+
+  def rotate(row, i \\ 1) do
+    row |> Enum.split(i) |> (fn {l, r} -> r ++ l end).()
   end
 end
