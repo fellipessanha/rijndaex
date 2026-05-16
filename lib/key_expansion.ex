@@ -70,11 +70,11 @@ defmodule KeyExpansion do
     iterate_words(words, initial, [])
   end
 
-  defp iterate_words([], _, acc), do: acc
+  defp iterate_words([], _, acc), do: Enum.reverse(acc)
 
   defp iterate_words([word | words], last, acc) do
     xored = add(word, last)
-    iterate_words(words, xored, acc ++ [xored])
+    iterate_words(words, xored, [xored | acc])
   end
 
   defp key_bitsize(key) when is_binary(key), do: bit_size(key)
