@@ -24,12 +24,8 @@ defmodule KeyExpansion do
   defp add(left, right), do: Bitwise.bxor(left, right)
   defp add({left, right}), do: Bitwise.bxor(left, right)
 
-  defp add_round_constant([word | rest], current_round, key_size) do
-    updated =
-      rem(current_round, CypherInput.n_round_keys(key_size))
-      |> :array.get(@round_constants)
-      |> add(word)
-
+  defp add_round_constant([word | rest], current_round) do
+    updated = current_round |> :array.get(@round_constants) |> add(word)
     [updated | rest]
   end
 
@@ -37,10 +33,14 @@ defmodule KeyExpansion do
   Key expansion algorithm per round.
 
   """
+  def expand_key(key) when is_binary(key),
+    do: key |> :binary.bin_to_list() |> expand_key()
 
-  def expand_key(key) do
+  def expand_key(key) when is_list(key) do
+    round_count = key |> key_bitsize() |> CypherInput.n_round_keys()
+
     {_, expansion} =
-      Enum.reduce(1..(key |> bit_size() |> CypherInput.n_round_keys()), [], fn
+      Enum.reduce(1..round_count, [], fn
         round_n, list when is_list(list) ->
           last_iteration = expand_key(key, round_n)
           {last_iteration, [last_iteration | list]}
@@ -50,7 +50,7 @@ defmodule KeyExpansion do
           {last_iteration, [last_iteration | acc]}
       end)
 
-    Enum.reverse(expansion)
+    [key | Enum.reverse(expansion)]
   end
 
   def expand_key(key, round_number) when is_list(key) or is_binary(key) do
@@ -59,13 +59,13 @@ defmodule KeyExpansion do
     iterate_words(key, context) |> List.flatten()
   end
 
-  defp iterate_words(words, %__MODULE__{round_number: round_number, key_size: key_size}) do
+  defp iterate_words(words, %__MODULE__{round_number: round_number}) do
     initial =
       words
       |> List.last()
       |> Operations.ShiftRow.rotate()
       |> Operations.SubBytes.apply()
-      |> add_round_constant(round_number, key_size)
+      |> add_round_constant(round_number)
 
     iterate_words(words, initial, [])
   end
@@ -77,14 +77,17 @@ defmodule KeyExpansion do
     iterate_words(words, xored, acc ++ [xored])
   end
 
-  defp key_to_words(key, chunk_size \\ @word_size)
+  defp key_bitsize(key) when is_binary(key), do: bit_size(key)
+  defp key_bitsize(key) when is_list(key), do: 8 * length(key)
 
-  defp key_to_words(key, chunk_size) when is_list(key) do
-    key |> Enum.chunk_every(chunk_size, chunk_size, :discard)
-  end
+  defp key_to_words(key, chunk_size \\ @word_size)
 
   defp key_to_words(key, chunk_size)
        when is_binary(key) and bit_size(key) in @valid_keysizes do
     key |> :binary.bin_to_list() |> key_to_words(chunk_size)
+  end
+
+  defp key_to_words(key, chunk_size) when is_list(key) do
+    key |> Enum.chunk_every(chunk_size, chunk_size, :discard)
   end
 end
