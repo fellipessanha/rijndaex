@@ -9,12 +9,16 @@ defmodule Operations.ShiftRow do
   Example:
 
     iex> matrix = [
-    ...>   [11, 12, 13,],
-    ...>   [21, 22, 23,],
-    ...>   [31, 32, 33]
+    ...>   [11, 12, 13, 14],
+    ...>   [21, 22, 23, 24],
+    ...>   [31, 32, 33, 34],
+    ...>   [41, 42, 43, 44]
     ...> ]
     iex> Operations.ShiftRow.apply(matrix)
-    [[11, 12, 13], [22, 23, 21], [33, 31, 32]]
+    [[11, 12, 13, 14],
+     [22, 23, 24, 21],
+     [33, 34, 31, 32],
+     [44, 41, 42, 43]]
     iex> matrix |> Operations.ShiftRow.apply() |> Operations.ShiftRow.revert() == matrix
     true
   """

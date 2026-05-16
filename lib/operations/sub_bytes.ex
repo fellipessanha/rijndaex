@@ -5,6 +5,7 @@ defmodule Operations.SubBytes do
   The inverse of subsitution box can be defined by
 
     iex>  Operations.SubBytes.apply(Range.to_list(0..7)) == [0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5]
+    true
   """
 
   @substitution_box :array.from_list(
