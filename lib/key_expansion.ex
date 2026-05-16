@@ -3,10 +3,13 @@ defmodule KeyExpansion do
   Should receive a Binary `key`, of bitsize 128, 192, or 256 and return the expanded key
 
   ## Examples:
+  Comparing against `00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00`, whith known results
+
     iex> key = for _ <- 1..16, into: <<>>, do: <<0>>
-    iex> KeyExpansion.expand_key(key, 1)
-    [ [0x62, 0x63, 0x63, 0x63], [0x62, 0x63, 0x63, 0x63], 
-      [0x62, 0x63, 0x63, 0x63], [0x62, 0x63, 0x63, 0x63]]
+    iex> first_round = KeyExpansion.expand_key(key, 1) |> List.flatten() |> :binary.list_to_bin()
+    <<0x62, 0x63, 0x63, 0x63, 0x62, 0x63, 0x63, 0x63, 0x62, 0x63, 0x63, 0x63, 0x62, 0x63, 0x63, 0x63>>
+    iex> KeyExpansion.expand_key(first_round, 2) |> List.flatten() |> :binary.list_to_bin()
+    <<0x9b, 0x98, 0x98, 0xc9, 0xf9, 0xfb, 0xfb, 0xaa, 0x9b, 0x98, 0x98, 0xc9, 0xf9, 0xfb, 0xfb, 0xaa>>
   """
   @word_size 4
   @valid_keysizes [128, 192, 256]
@@ -35,13 +38,25 @@ defmodule KeyExpansion do
 
   """
 
-  def expand_key(key, round_number) when is_binary(key) do
-    context = %__MODULE__{round_number: round_number, key_size: bit_size(key)}
-    key |> key_to_words() |> expand_key(context)
+  def expand_key(key) do
+    {_, expansion} =
+      Enum.reduce(1..(key |> bit_size() |> CypherInput.n_round_keys()), [], fn
+        round_n, list when is_list(list) ->
+          last_iteration = expand_key(key, round_n)
+          {last_iteration, [last_iteration | list]}
+
+        round_n, {last, acc} ->
+          last_iteration = expand_key(last, round_n)
+          {last_iteration, [last_iteration | acc]}
+      end)
+
+    Enum.reverse(expansion)
   end
 
-  def expand_key(key, context) when is_list(key) do
-    iterate_words(key, context)
+  def expand_key(key, round_number) when is_list(key) or is_binary(key) do
+    key = key_to_words(key)
+    context = %__MODULE__{round_number: round_number, key_size: length(key) * @word_size * 8}
+    iterate_words(key, context) |> List.flatten()
   end
 
   defp iterate_words(words, %__MODULE__{round_number: round_number, key_size: key_size}) do
@@ -63,7 +78,13 @@ defmodule KeyExpansion do
   end
 
   defp key_to_words(key, chunk_size \\ @word_size)
+
+  defp key_to_words(key, chunk_size) when is_list(key) do
+    key |> Enum.chunk_every(chunk_size, chunk_size, :discard)
+  end
+
+  defp key_to_words(key, chunk_size)
        when is_binary(key) and bit_size(key) in @valid_keysizes do
-    key |> :binary.bin_to_list() |> Enum.chunk_every(chunk_size, chunk_size, :discard)
+    key |> :binary.bin_to_list() |> key_to_words(chunk_size)
   end
 end
