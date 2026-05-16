@@ -4,37 +4,70 @@ defmodule CypherInput do
   @binary_block_size 16
 
   @moduledoc """
-  Validates key and input binary blob to be cyphered.
-  Binary will be left padded with PKCS7 algorithm
-  Accepts only keys with sizes #{inspect(@valid_keysizes)}
-  Returns %CypherInput{} struct
+  Validates key and input binary blob to be ciphered.
 
-  ## Examples:
+  The binary is right-padded to the next 16-byte boundary using PKCS7.
+  Accepts only keys with sizes #{inspect(@valid_keysizes)} bits.
 
-    iex(9)> CypherInput.new(<<123::128>>, <<0::64>>)
-    {:ok,
-      %CypherInput{
-        key: <<0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 123>>,
-        binary: <<0, 0, 0, 0, 0, 0, 0, 0, 8, 8, 8, 8, 8, 8, 8, 8>>,
-        key_size: 128,
-        rounds: 10
-      }}
+  ## Examples
 
-    iex(7)> CypherInput.new(<<123::125>>, <<0>>)
-    {:error, "Invalid key size: '125'. Valid options are [128, 192, 256]"}
+      iex> {:ok, input} = CypherInput.new(<<0::128>>, <<0::64>>)
+      iex> input.key_size
+      128
+      iex> input.rounds
+      10
+      iex> byte_size(input.binary)
+      16
+
+      iex> CypherInput.new(<<123::125>>, <<0>>)
+      {:error, "Invalid key size: '125'. Valid options are [128, 192, 256]"}
 
   """
 
+  @type t() :: %__MODULE__{
+          key: bitstring(),
+          binary: binary(),
+          key_size: 128 | 192 | 256,
+          rounds: 10 | 12 | 14
+        }
+
   defstruct [:key, :binary, :key_size, :rounds]
 
+  @spec n_keys(128 | 192 | 256) :: 4 | 6 | 8
   @doc """
-  
+  Returns the number of 32-bit key words for the given key size in bits.
+
+  AES uses 4 words for 128-bit keys, 6 for 192-bit keys, and 8 for 256-bit keys.
+
+  ## Examples
+
+      iex> CypherInput.n_keys(128)
+      4
+      iex> CypherInput.n_keys(192)
+      6
+      iex> CypherInput.n_keys(256)
+      8
   """
   def n_keys(128), do: 4
   def n_keys(192), do: 6
   def n_keys(256), do: 8
   def n_keys(_), do: raise("Invalid key size! the valid values are #{@valid_keysizes}")
 
+  @spec n_round_keys(128 | 192 | 256) :: 10 | 12 | 14
+  @doc """
+  Returns the number of encryption rounds for the given key size in bits.
+
+  AES-128 uses 10 rounds, AES-192 uses 12 rounds, AES-256 uses 14 rounds.
+
+  ## Examples
+
+      iex> CypherInput.n_round_keys(128)
+      10
+      iex> CypherInput.n_round_keys(192)
+      12
+      iex> CypherInput.n_round_keys(256)
+      14
+  """
   def n_round_keys(128), do: 10
   def n_round_keys(192), do: 12
   def n_round_keys(256), do: 14
@@ -50,6 +83,24 @@ defmodule CypherInput do
     binary <> :binary.copy(<<pad_value>>, pad_value)
   end
 
+  @spec new(bitstring(), binary()) :: {:ok, t()} | {:error, String.t()}
+  @doc """
+  Creates a validated `CypherInput` struct from a cipher key and plaintext binary.
+
+  Validates that `key` is exactly 128, 192, or 256 bits. Right-pads `binary`
+  to the next 16-byte boundary using PKCS7.
+
+  ## Examples
+
+      iex> {:ok, input} = CypherInput.new(<<0::128>>, "hello")
+      iex> input.key_size
+      128
+      iex> byte_size(input.binary)
+      10
+
+      iex> CypherInput.new(<<0::100>>, "hello")
+      {:error, "Invalid key size: '100'. Valid options are [128, 192, 256]"}
+  """
   def new(key, binary) when is_bitstring(key) and is_binary(binary) do
     key_size = bit_size(key)
 
