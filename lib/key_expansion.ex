@@ -1,15 +1,21 @@
 defmodule KeyExpansion do
   @moduledoc """
-  Should receive a Binary `key`, of bitsize 128, 192, or 256 and return the expanded key
+  Implements the AES key schedule (key expansion algorithm).
 
-  ## Examples:
-  Comparing against `00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00`, whith known results
+  Derives all per-round subkeys from the original cipher key. The key schedule
+  follows the NIST AES specification: for each round, the last word of the
+  previous key undergoes RotWord → SubWord → XOR with the round constant, then
+  each subsequent word is XORed with the preceding expanded word.
 
-    iex> key = for _ <- 1..16, into: <<>>, do: <<0>>
-    iex> first_round = KeyExpansion.expand_key(key, 1) |> List.flatten() |> :binary.list_to_bin()
-    <<0x62, 0x63, 0x63, 0x63, 0x62, 0x63, 0x63, 0x63, 0x62, 0x63, 0x63, 0x63, 0x62, 0x63, 0x63, 0x63>>
-    iex> KeyExpansion.expand_key(first_round, 2) |> List.flatten() |> :binary.list_to_bin()
-    <<0x9b, 0x98, 0x98, 0xc9, 0xf9, 0xfb, 0xfb, 0xaa, 0x9b, 0x98, 0x98, 0xc9, 0xf9, 0xfb, 0xfb, 0xaa>>
+  Supports 128-bit (10 rounds), 192-bit (12 rounds), and 256-bit (14 rounds) keys.
+
+  ## Examples
+
+      iex> key = for _ <- 1..16, into: <<>>, do: <<0>>
+      iex> first_round = KeyExpansion.expand_key(key, 1) |> :binary.list_to_bin()
+      <<0x62, 0x63, 0x63, 0x63, 0x62, 0x63, 0x63, 0x63, 0x62, 0x63, 0x63, 0x63, 0x62, 0x63, 0x63, 0x63>>
+      iex> KeyExpansion.expand_key(first_round, 2) |> :binary.list_to_bin()
+      <<0x9b, 0x98, 0x98, 0xc9, 0xf9, 0xfb, 0xfb, 0xaa, 0x9b, 0x98, 0x98, 0xc9, 0xf9, 0xfb, 0xfb, 0xaa>>
   """
   @word_size 4
   @valid_keysizes [128, 192, 256]
@@ -29,9 +35,22 @@ defmodule KeyExpansion do
     [updated | rest]
   end
 
+  @spec expand_key(binary() | [non_neg_integer()]) :: [[non_neg_integer()]]
   @doc """
-  Key expansion algorithm per round.
+  Expands a cipher key into all round keys for a full AES encryption.
 
+  Accepts a binary or a list of bytes. Returns a list where the first element is
+  the original key bytes and each subsequent element is the expanded key for that round.
+  The total length equals the number of rounds plus one (original key).
+
+  ## Examples
+
+      iex> key = for _ <- 1..16, into: <<>>, do: <<0>>
+      iex> all_keys = KeyExpansion.expand_key(key)
+      iex> length(all_keys)
+      11
+      iex> hd(all_keys)
+      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
   """
   def expand_key(key) when is_binary(key),
     do: key |> :binary.bin_to_list() |> expand_key()
@@ -53,6 +72,19 @@ defmodule KeyExpansion do
     [key | Enum.reverse(expansion)]
   end
 
+  @spec expand_key(binary() | [non_neg_integer()], pos_integer()) :: [non_neg_integer()]
+  @doc """
+  Derives the expanded key for a single round from the preceding key.
+
+  Applies RotWord → SubWord → XOR round constant → XOR previous words.
+  Returns a flat list of bytes representing the round key for `round_number`.
+
+  ## Examples
+
+      iex> key = for _ <- 1..16, into: <<>>, do: <<0>>
+      iex> KeyExpansion.expand_key(key, 1) |> length()
+      16
+  """
   def expand_key(key, round_number) when is_list(key) or is_binary(key) do
     key = key_to_words(key)
     context = %__MODULE__{round_number: round_number, key_size: length(key) * @word_size * 8}

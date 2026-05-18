@@ -1,20 +1,24 @@
 defmodule Operations.MixColumns do
   @moduledoc """
-  Specific _multiplication_ operation used in this algorithm.
+  Implements the MixColumns step of the AES cipher.
 
-  it's a mix of bitwise xors and rightshifts in b operation.
+  Treats each column of the 4×4 state matrix as a polynomial over GF(2⁸) and
+  multiplies it by a fixed polynomial, providing diffusion across column bytes.
+  The reduction polynomial is x⁸ + x⁴ + x³ + x + 1 (0x11B).
 
-    iex> Operations.MixColumns.apply([99, 71, 162, 240])
-    [93, 224, 112, 187]
+  ## Examples
 
-    iex> Operations.MixColumns.revert([93, 224, 112, 187])
-    [99, 71, 162, 240]
+      iex> Operations.MixColumns.apply([99, 71, 162, 240])
+      [93, 224, 112, 187]
 
-    iex> Operations.MixColumns.apply([242, 10, 34, 92])
-    [159, 220, 88, 157]
+      iex> Operations.MixColumns.revert([93, 224, 112, 187])
+      [99, 71, 162, 240]
 
-    iex> Operations.MixColumns.revert([159, 220, 88, 157])
-    [242, 10, 34, 92]
+      iex> Operations.MixColumns.apply([242, 10, 34, 92])
+      [159, 220, 88, 157]
+
+      iex> Operations.MixColumns.revert([159, 220, 88, 157])
+      [242, 10, 34, 92]
   """
   import Bitwise, only: [&&&: 2, <<<: 2, >>>: 2, bxor: 2]
 
@@ -27,6 +31,17 @@ defmodule Operations.MixColumns do
 
   defp add(a, b), do: bxor(a, b)
 
+  @spec mul(non_neg_integer(), non_neg_integer()) :: non_neg_integer()
+  @doc """
+  Multiplies two values in GF(2⁸) using the AES reduction polynomial.
+
+  ## Examples
+
+      iex> Operations.MixColumns.mul(3, 5)
+      15
+      iex> Operations.MixColumns.mul(0x57, 0x13)
+      0xFE
+  """
   def mul(a, b), do: mul(a, b, 0)
   defp mul(_, 0, result), do: result
 
@@ -40,6 +55,18 @@ defmodule Operations.MixColumns do
 
   defp mul2(a), do: (a <<< 1) |> rem(0x100)
 
+  @spec apply([non_neg_integer()]) :: [non_neg_integer()]
+  @doc """
+  Applies the MixColumns transformation to a single column (list of 4 bytes).
+
+  Each output byte is derived from all four input bytes via GF(2⁸) arithmetic,
+  providing diffusion within the column.
+
+  ## Examples
+
+      iex> Operations.MixColumns.apply([99, 71, 162, 240])
+      [93, 224, 112, 187]
+  """
   def apply(column) do
     xored = Enum.reduce(column, &add/2)
 
@@ -50,6 +77,18 @@ defmodule Operations.MixColumns do
     end)
   end
 
+  @spec revert([non_neg_integer()]) :: [non_neg_integer()]
+  @doc """
+  Applies the inverse MixColumns transformation to a single column (list of 4 bytes).
+
+  Recovers the original column from a MixColumns-transformed one using the
+  AES inverse matrix over GF(2⁸).
+
+  ## Examples
+
+      iex> Operations.MixColumns.revert([93, 224, 112, 187])
+      [99, 71, 162, 240]
+  """
   def revert(column) do
     for row <- @inverse_matrix do
       Enum.zip(column, row)

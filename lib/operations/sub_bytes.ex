@@ -1,11 +1,15 @@
 defmodule Operations.SubBytes do
   @moduledoc """
-  Replaces bytes by predefined values, stored in @substitution_box
+  Implements the SubBytes step of the AES cipher.
 
-  The inverse of subsitution box can be defined by
+  Performs a non-linear byte substitution using a fixed 256-entry lookup table
+  (the AES S-box). Each input byte is independently replaced by its S-box value,
+  providing confusion in the cipher.
 
-    iex>  Operations.SubBytes.apply(Range.to_list(0..7)) == [0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5]
-    true
+  ## Examples
+
+      iex> Operations.SubBytes.apply(Range.to_list(0..7)) == [0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5]
+      true
   """
 
   @substitution_box :array.from_list(
@@ -84,6 +88,20 @@ defmodule Operations.SubBytes do
                  |> List.flatten()
                )
 
+  @spec apply([non_neg_integer()]) :: [non_neg_integer()]
+  @spec apply(non_neg_integer()) :: non_neg_integer()
+  @doc """
+  Substitutes each byte through the AES S-box.
+
+  Accepts a list of byte values (applied to each element) or a single byte integer.
+
+  ## Examples
+
+      iex> Operations.SubBytes.apply(0)
+      99
+      iex> Operations.SubBytes.apply([0, 1, 2])
+      [99, 124, 119]
+  """
   def apply(rows) when is_list(rows) do
     Enum.map(rows, &apply/1)
   end
@@ -92,6 +110,20 @@ defmodule Operations.SubBytes do
     :array.get(element, @substitution_box)
   end
 
+  @spec revert([non_neg_integer()]) :: [non_neg_integer()]
+  @spec revert(non_neg_integer()) :: non_neg_integer()
+  @doc """
+  Recovers original bytes from S-box substituted values using the inverse S-box.
+
+  Accepts a list of byte values (applied to each element) or a single byte integer.
+
+  ## Examples
+
+      iex> Operations.SubBytes.revert(99)
+      0
+      iex> Operations.SubBytes.revert([99, 124, 119])
+      [0, 1, 2]
+  """
   def revert(rows) when is_list(rows) do
     Enum.map(rows, &revert/1)
   end
