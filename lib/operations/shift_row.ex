@@ -17,10 +17,10 @@ defmodule Operations.ShiftRow do
       ...>   [41, 42, 43, 44]
       ...> ]
       iex> Operations.ShiftRow.apply(matrix)
-      [[11, 12, 13, 14],
-       [22, 23, 24, 21],
-       [33, 34, 31, 32],
-       [44, 41, 42, 43]]
+      [11, 12, 13, 14,
+       22, 23, 24, 21,
+       33, 34, 31, 32,
+       44, 41, 42, 43]
       iex> matrix |> Operations.ShiftRow.apply() |> Operations.ShiftRow.revert() == matrix
       true
   """
@@ -33,13 +33,18 @@ defmodule Operations.ShiftRow do
 
   ## Examples
 
+      iex> Operations.ShiftRow.apply([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
       iex> Operations.ShiftRow.apply([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16]])
-      [[1, 2, 3, 4], [6, 7, 8, 5], [11, 12, 9, 10], [16, 13, 14, 15]]
+      [1, 2, 3, 4, 6, 7, 8, 5, 11, 12, 9, 10, 16, 13, 14, 15]
   """
-  def apply(rows) do
-    for {row, i} <- Enum.with_index(rows) do
+  def apply(block = [first | _]) when is_integer(first),
+    do: block |> Enum.chunk_every(4, 4, :discard) |> apply()
+
+  def apply(block = [first | _]) when is_list(first) do
+    for {row, i} <- Enum.with_index(block) do
       rotate(row, i)
     end
+    |> List.flatten()
   end
 
   @spec revert([[non_neg_integer()]]) :: [[non_neg_integer()]]
@@ -53,6 +58,9 @@ defmodule Operations.ShiftRow do
       iex> Operations.ShiftRow.revert([[1, 2, 3, 4], [6, 7, 8, 5], [11, 12, 9, 10], [16, 13, 14, 15]])
       [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16]]
   """
+  def revert(block = [first | _]) when is_integer(first),
+    do: block |> Enum.chunk_every(4, 4, :discard) |> revert()
+
   def revert(rows) do
     for {row, i} <- Enum.with_index(rows) do
       rotate(row, -i)
