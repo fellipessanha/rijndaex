@@ -37,9 +37,9 @@ defmodule KeyExpansion do
       iex> key = for _ <- 1..16, into: <<>>, do: <<0>>
       iex> all_keys = KeyExpansion.expand_key(key)
       iex> length(all_keys)
-      11
+      10
       iex> hd(all_keys)
-      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      [98, 99, 99, 99, 98, 99, 99, 99, 98, 99, 99, 99, 98, 99, 99, 99]
   """
   def expand_key(key) when is_binary(key),
     do: key |> :binary.bin_to_list() |> expand_key()
@@ -58,7 +58,7 @@ defmodule KeyExpansion do
           {last_iteration, [last_iteration | acc]}
       end)
 
-    [key | Enum.reverse(expansion)]
+    Enum.reverse(expansion)
   end
 
   @spec expand_key(binary() | [non_neg_integer()], pos_integer()) :: [non_neg_integer()]
@@ -80,11 +80,12 @@ defmodule KeyExpansion do
     iterate_words(key, context) |> List.flatten()
   end
 
-  defp add(left, right) when is_list(left) and is_list(right),
-    do: Enum.map(Enum.zip(left, right), &add/1)
+  def add(left, right) when is_list(left) and is_list(right) do
+    Enum.map(Enum.zip(left, right), &add/1)
+  end
 
-  defp add(left, right), do: Bitwise.bxor(left, right)
-  defp add({left, right}), do: Bitwise.bxor(left, right)
+  def add(left, right), do: Bitwise.bxor(left, right)
+  def add({left, right}), do: Bitwise.bxor(left, right)
 
   defp add_round_constant([word | rest], current_round) do
     updated = current_round |> :array.get(@round_constants) |> add(word)
