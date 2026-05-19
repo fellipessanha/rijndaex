@@ -24,17 +24,6 @@ defmodule KeyExpansion do
 
   defstruct [:round_number, :key_size]
 
-  defp add(left, right) when is_list(left) and is_list(right),
-    do: Enum.map(Enum.zip(left, right), &add/1)
-
-  defp add(left, right), do: Bitwise.bxor(left, right)
-  defp add({left, right}), do: Bitwise.bxor(left, right)
-
-  defp add_round_constant([word | rest], current_round) do
-    updated = current_round |> :array.get(@round_constants) |> add(word)
-    [updated | rest]
-  end
-
   @spec expand_key(binary() | [non_neg_integer()]) :: [[non_neg_integer()]]
   @doc """
   Expands a cipher key into all round keys for a full AES encryption.
@@ -89,6 +78,17 @@ defmodule KeyExpansion do
     key = key_to_words(key)
     context = %__MODULE__{round_number: round_number, key_size: length(key) * @word_size * 8}
     iterate_words(key, context) |> List.flatten()
+  end
+
+  defp add(left, right) when is_list(left) and is_list(right),
+    do: Enum.map(Enum.zip(left, right), &add/1)
+
+  defp add(left, right), do: Bitwise.bxor(left, right)
+  defp add({left, right}), do: Bitwise.bxor(left, right)
+
+  defp add_round_constant([word | rest], current_round) do
+    updated = current_round |> :array.get(@round_constants) |> add(word)
+    [updated | rest]
   end
 
   defp iterate_words(words, %__MODULE__{round_number: round_number}) do

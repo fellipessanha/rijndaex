@@ -10,4 +10,11 @@ defmodule Rijndaex do
   - `Operations.ShiftRow` — cyclic row permutation over the 4×4 state matrix
   - `Operations.MixColumns` — column mixing via GF(2⁸) matrix multiplication
   """
+
+  def entrypoint(key, input) do
+    parsed_input = CypherInput.new(key, input)
+    expanded_key = KeyExpansion.expand_key(key)
+
+    apply(expanded_key, parsed_input)
+  end
 end
