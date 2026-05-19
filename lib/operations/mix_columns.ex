@@ -67,14 +67,20 @@ defmodule Operations.MixColumns do
       iex> Operations.MixColumns.apply([99, 71, 162, 240])
       [93, 224, 112, 187]
   """
-  def apply(column) do
-    xored = Enum.reduce(column, &add/2)
+  def apply(block = [first | _]) when is_list(first), do: Enum.flat_map(block, &perform/1)
 
-    column
-    |> Enum.chunk_every(2, 1, column)
+  def apply(block = [first | _]) when is_integer(first),
+    do: block |> Enum.chunk_every(4, 4, :discard) |> apply()
+
+  defp perform(row) do
+    xored = Enum.reduce(row, &add/2)
+
+    row
+    |> Enum.chunk_every(2, 1, row)
     |> Enum.map(fn [a, b] ->
       mul2(add(a, b)) |> add(xored) |> add(a)
     end)
+    |> List.flatten()
   end
 
   @spec revert([non_neg_integer()]) :: [non_neg_integer()]
