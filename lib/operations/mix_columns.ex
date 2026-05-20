@@ -90,6 +90,8 @@ defmodule Operations.MixColumns do
       iex> Operations.MixColumns.revert([93, 224, 112, 187])
       [99, 71, 162, 240]
   """
+  def revert(block = [first | _]) when is_list(first), do: Enum.map(block, &revert/1)
+
   def revert(column) do
     for row <- @inverse_matrix do
       Enum.zip(column, row)
