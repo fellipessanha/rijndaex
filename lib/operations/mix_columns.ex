@@ -20,7 +20,8 @@ defmodule Operations.MixColumns do
       iex> Operations.MixColumns.revert([159, 220, 88, 157])
       [242, 10, 34, 92]
   """
-  import Bitwise, only: [&&&: 2, <<<: 2, >>>: 2, bxor: 2]
+  import Bitwise, only: [&&&: 2, <<<: 2, >>>: 2]
+  import Operations, only: [add: 2]
 
   @inverse_matrix [
     [14, 11, 13, 9],
@@ -28,8 +29,6 @@ defmodule Operations.MixColumns do
     [13, 9, 14, 11],
     [11, 13, 9, 14]
   ]
-
-  defp add(a, b), do: bxor(a, b)
 
   @spec mul(non_neg_integer(), non_neg_integer()) :: non_neg_integer()
   @doc """
