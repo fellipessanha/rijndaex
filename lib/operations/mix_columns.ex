@@ -20,7 +20,8 @@ defmodule Operations.MixColumns do
       iex> Operations.MixColumns.revert([159, 220, 88, 157])
       [242, 10, 34, 92]
   """
-  import Bitwise, only: [&&&: 2, <<<: 2, >>>: 2, bxor: 2]
+  import Bitwise, only: [&&&: 2, <<<: 2, >>>: 2]
+  import Operations, only: [add: 2]
 
   @inverse_matrix [
     [14, 11, 13, 9],
@@ -28,8 +29,6 @@ defmodule Operations.MixColumns do
     [13, 9, 14, 11],
     [11, 13, 9, 14]
   ]
-
-  defp add(a, b), do: bxor(a, b)
 
   @spec mul(non_neg_integer(), non_neg_integer()) :: non_neg_integer()
   @doc """
@@ -67,11 +66,13 @@ defmodule Operations.MixColumns do
       iex> Operations.MixColumns.apply([99, 71, 162, 240])
       [93, 224, 112, 187]
   """
-  def apply(column) do
-    xored = Enum.reduce(column, &add/2)
+  def apply(block = [first | _]) when is_list(first), do: Enum.map(block, &apply/1)
 
-    column
-    |> Enum.chunk_every(2, 1, column)
+  def apply(row = [item | _]) when is_integer(item) do
+    xored = Enum.reduce(row, &add/2)
+
+    row
+    |> Enum.chunk_every(2, 1, row)
     |> Enum.map(fn [a, b] ->
       mul2(add(a, b)) |> add(xored) |> add(a)
     end)

@@ -1,7 +1,16 @@
 defmodule CypherInput do
-  @enforce_keys [:key, :binary]
+  @enforce_keys [:key, :blocks]
   @valid_keysizes [128, 192, 256]
   @binary_block_size 16
+
+  @type t() :: %__MODULE__{
+          key: bitstring(),
+          blocks: list(binary()),
+          key_size: 128 | 192 | 256,
+          rounds: 10 | 12 | 14
+        }
+
+  defstruct [:key, :blocks, :key_size, :rounds]
 
   @moduledoc """
   Validates key and input binary blob to be ciphered.
@@ -16,22 +25,53 @@ defmodule CypherInput do
       128
       iex> input.rounds
       10
-      iex> byte_size(input.binary)
-      16
+      iex> input.blocks |> List.first() |> length
+      #{@binary_block_size}
 
       iex> CypherInput.new(<<123::125>>, <<0>>)
       {:error, "Invalid key size: '125'. Valid options are [128, 192, 256]"}
 
   """
 
-  @type t() :: %__MODULE__{
-          key: bitstring(),
-          binary: binary(),
-          key_size: 128 | 192 | 256,
-          rounds: 10 | 12 | 14
-        }
+  @spec new(bitstring(), binary()) :: {:ok, t()} | {:error, String.t()}
+  @doc """
+  Creates a validated `CypherInput` struct from a cipher key and plaintext binary.
 
-  defstruct [:key, :binary, :key_size, :rounds]
+  Validates that `key` is exactly 128, 192, or 256 bits. Right-pads `binary`
+  to the next 16-byte boundary using PKCS7.
+
+  ## Examples
+
+      iex> {:ok, input} = CypherInput.new(<<0::128>>, "hello")
+      iex> input.key_size
+      128
+      iex> input.blocks
+      [([?h, ?e, ?l, ?l, ?o] ++ for _ <- 6..#{@binary_block_size} , do: 11)]
+
+
+      iex> CypherInput.new(<<0::100>>, "hello")
+      {:error, "Invalid key size: '100'. Valid options are [128, 192, 256]"}
+  """
+  def new(key, binary) when is_bitstring(key) and is_binary(binary) do
+    key_size = bit_size(key)
+
+    with :ok <- validade_keysize(key_size) do
+      padded_binary = parse_into_block(binary)
+
+      {:ok,
+       %__MODULE__{
+         key: key,
+         blocks: padded_binary,
+         key_size: key_size,
+         rounds: n_round_keys(key_size)
+       }}
+    end
+  end
+
+  def new(_, _),
+    do:
+      {:error,
+       "Arguments for #{__MODULE__}.new/2 are. bistring with valid size: #{inspect(@valid_keysizes)}, binary"}
 
   @spec n_keys(128 | 192 | 256) :: 4 | 6 | 8
   @doc """
@@ -78,47 +118,15 @@ defmodule CypherInput do
     do:
       {:error, "Invalid key size: \'#{key_size}\'. Valid options are #{inspect(@valid_keysizes)}"}
 
-  defp right_pad_to_valid_binary_size(binary) do
-    pad_value = rem(byte_size(binary), @binary_block_size)
-    binary <> :binary.copy(<<pad_value>>, pad_value)
+  defp parse_into_block(binary) do
+    filler = binary |> byte_size() |> rem(@binary_block_size)
+
+    binary
+    |> :binary.bin_to_list()
+    |> Enum.chunk_every(
+      @binary_block_size,
+      @binary_block_size,
+      Stream.repeatedly(fn -> @binary_block_size - filler end)
+    )
   end
-
-  @spec new(bitstring(), binary()) :: {:ok, t()} | {:error, String.t()}
-  @doc """
-  Creates a validated `CypherInput` struct from a cipher key and plaintext binary.
-
-  Validates that `key` is exactly 128, 192, or 256 bits. Right-pads `binary`
-  to the next 16-byte boundary using PKCS7.
-
-  ## Examples
-
-      iex> {:ok, input} = CypherInput.new(<<0::128>>, "hello")
-      iex> input.key_size
-      128
-      iex> byte_size(input.binary)
-      10
-
-      iex> CypherInput.new(<<0::100>>, "hello")
-      {:error, "Invalid key size: '100'. Valid options are [128, 192, 256]"}
-  """
-  def new(key, binary) when is_bitstring(key) and is_binary(binary) do
-    key_size = bit_size(key)
-
-    with :ok <- validade_keysize(key_size) do
-      padded_binary = right_pad_to_valid_binary_size(binary)
-
-      {:ok,
-       %__MODULE__{
-         key: key,
-         binary: padded_binary,
-         key_size: key_size,
-         rounds: n_round_keys(key_size)
-       }}
-    end
-  end
-
-  def new(_, _),
-    do:
-      {:error,
-       "Arguments for #{__MODULE__}.new/2 are. bistring with valid size: #{inspect(@valid_keysizes)}, binary"}
 end

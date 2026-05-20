@@ -12,28 +12,18 @@ defmodule KeyExpansion do
   ## Examples
 
       iex> key = for _ <- 1..16, into: <<>>, do: <<0>>
-      iex> first_round = KeyExpansion.expand_key(key, 1) |> :binary.list_to_bin()
-      <<0x62, 0x63, 0x63, 0x63, 0x62, 0x63, 0x63, 0x63, 0x62, 0x63, 0x63, 0x63, 0x62, 0x63, 0x63, 0x63>>
-      iex> KeyExpansion.expand_key(first_round, 2) |> :binary.list_to_bin()
-      <<0x9b, 0x98, 0x98, 0xc9, 0xf9, 0xfb, 0xfb, 0xaa, 0x9b, 0x98, 0x98, 0xc9, 0xf9, 0xfb, 0xfb, 0xaa>>
+      iex> first_round = KeyExpansion.expand_key(key, 1) |> List.flatten()
+      [0x62, 0x63, 0x63, 0x63, 0x62, 0x63, 0x63, 0x63, 0x62, 0x63, 0x63, 0x63, 0x62, 0x63, 0x63, 0x63]
+      iex> KeyExpansion.expand_key(first_round, 2) |> List.flatten()
+      [0x9b, 0x98, 0x98, 0xc9, 0xf9, 0xfb, 0xfb, 0xaa, 0x9b, 0x98, 0x98, 0xc9, 0xf9, 0xfb, 0xfb, 0xaa]
   """
+  import Operations, only: [add: 2]
   @word_size 4
   @valid_keysizes [128, 192, 256]
   @round_constants [0x7D, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36]
                    |> :array.from_list()
 
   defstruct [:round_number, :key_size]
-
-  defp add(left, right) when is_list(left) and is_list(right),
-    do: Enum.map(Enum.zip(left, right), &add/1)
-
-  defp add(left, right), do: Bitwise.bxor(left, right)
-  defp add({left, right}), do: Bitwise.bxor(left, right)
-
-  defp add_round_constant([word | rest], current_round) do
-    updated = current_round |> :array.get(@round_constants) |> add(word)
-    [updated | rest]
-  end
 
   @spec expand_key(binary() | [non_neg_integer()]) :: [[non_neg_integer()]]
   @doc """
@@ -48,9 +38,9 @@ defmodule KeyExpansion do
       iex> key = for _ <- 1..16, into: <<>>, do: <<0>>
       iex> all_keys = KeyExpansion.expand_key(key)
       iex> length(all_keys)
-      11
-      iex> hd(all_keys)
-      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      10
+      iex> hd(all_keys) |> List.flatten()
+      [98, 99, 99, 99, 98, 99, 99, 99, 98, 99, 99, 99, 98, 99, 99, 99]
   """
   def expand_key(key) when is_binary(key),
     do: key |> :binary.bin_to_list() |> expand_key()
@@ -61,7 +51,7 @@ defmodule KeyExpansion do
     {_, expansion} =
       Enum.reduce(1..round_count, [], fn
         round_n, list when is_list(list) ->
-          last_iteration = expand_key(key, round_n)
+          last_iteration = expand_key(key_to_words(key), round_n)
           {last_iteration, [last_iteration | list]}
 
         round_n, {last, acc} ->
@@ -69,26 +59,31 @@ defmodule KeyExpansion do
           {last_iteration, [last_iteration | acc]}
       end)
 
-    [key | Enum.reverse(expansion)]
+    Enum.reverse(expansion) |> Enum.map(&key_to_words/1)
   end
 
-  @spec expand_key(binary() | [non_neg_integer()], pos_integer()) :: [non_neg_integer()]
+  @spec expand_key(binary() | [non_neg_integer()], pos_integer()) :: [[non_neg_integer()]]
   @doc """
   Derives the expanded key for a single round from the preceding key.
 
   Applies RotWord → SubWord → XOR round constant → XOR previous words.
-  Returns a flat list of bytes representing the round key for `round_number`.
+  Returns a list of 4-byte word lists (same structure as `key_to_words/2` output).
 
   ## Examples
 
       iex> key = for _ <- 1..16, into: <<>>, do: <<0>>
-      iex> KeyExpansion.expand_key(key, 1) |> length()
+      iex> KeyExpansion.expand_key(key, 1) |> List.flatten() |> length()
       16
   """
   def expand_key(key, round_number) when is_list(key) or is_binary(key) do
     key = key_to_words(key)
     context = %__MODULE__{round_number: round_number, key_size: length(key) * @word_size * 8}
-    iterate_words(key, context) |> List.flatten()
+    iterate_words(key, context)
+  end
+
+  defp add_round_constant([word | rest], current_round) when is_integer(word) do
+    updated = current_round |> :array.get(@round_constants) |> add(word)
+    [updated | rest]
   end
 
   defp iterate_words(words, %__MODULE__{round_number: round_number}) do
@@ -102,7 +97,7 @@ defmodule KeyExpansion do
     iterate_words(words, initial, [])
   end
 
-  defp iterate_words([], _, acc), do: Enum.reverse(acc)
+  defp iterate_words([], _, acc), do: acc |> Enum.reverse()
 
   defp iterate_words([word | words], last, acc) do
     xored = add(word, last)
@@ -112,14 +107,27 @@ defmodule KeyExpansion do
   defp key_bitsize(key) when is_binary(key), do: bit_size(key)
   defp key_bitsize(key) when is_list(key), do: 8 * length(key)
 
-  defp key_to_words(key, chunk_size \\ @word_size)
+  @doc """
+  Splits a key into a list of 4-byte words (or the given `chunk_size`).
 
-  defp key_to_words(key, chunk_size)
-       when is_binary(key) and bit_size(key) in @valid_keysizes do
+  Accepts a binary or a flat byte list. If the input is already chunked
+  (a list of lists), it is returned as-is.
+
+  ## Examples
+
+      iex> KeyExpansion.key_to_words([1, 2, 3, 4, 5, 6, 7, 8])
+      [[1, 2, 3, 4], [5, 6, 7, 8]]
+  """
+  def key_to_words(key, chunk_size \\ @word_size)
+
+  def key_to_words(key, chunk_size)
+      when is_binary(key) and bit_size(key) in @valid_keysizes do
     key |> :binary.bin_to_list() |> key_to_words(chunk_size)
   end
 
-  defp key_to_words(key, chunk_size) when is_list(key) do
+  def key_to_words(key = [first | _], _) when is_list(first), do: key
+
+  def key_to_words(key, chunk_size) when is_list(key) do
     key |> Enum.chunk_every(chunk_size, chunk_size, :discard)
   end
 end
