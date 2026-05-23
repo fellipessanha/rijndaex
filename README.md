@@ -1,21 +1,11 @@
 # Rijndaex
 
-**TODO: Add description**
+Exercise done for an Intro to Cryptography class, ministered by Luis Kowada in Universidade Federal Fluminense.
 
-## Installation
+Some cool sources that help me throughout this project:
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `rijndaex` to your list of dependencies in `mix.exs`:
+- https://blog.0x7d0.dev/education/how-aes-is-implemented/
+- https://www.samiam.org/key-schedule.html
 
-```elixir
-def deps do
-  [
-    {:rijndaex, "~> 0.1.0"}
-  ]
-end
-```
-
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/rijndaex>.
+The second one is especially useful for examples and test cases.
 
