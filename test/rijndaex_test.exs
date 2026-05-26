@@ -5,6 +5,12 @@ defmodule RijndaexTest do
   doctest KeyExpansion
 
   describe "test full key expansion" do
+    @sample_key <<0x54, 0x68, 0x61, 0x74, 0x73, 0x20, 0x6D, 0x79, 0x20, 0x4B, 0x75, 0x6E, 0x67,
+                  0x20, 0x46, 0x75>>
+
+    @sample_input <<0x54, 0x77, 0x6F, 0x20, 0x4F, 0x6E, 0x65, 0x20, 0x4E, 0x69, 0x6E, 0x65, 0x20,
+                    0x54, 0x77, 0x6F>>
+
     test "all zeros" do
       ans =
         [
@@ -45,15 +51,28 @@ defmodule RijndaexTest do
   end
 
   test "apply |> revert returns input" do
-    key =
-      <<0x54, 0x68, 0x61, 0x74, 0x73, 0x20, 0x6D, 0x79, 0x20, 0x4B, 0x75, 0x6E, 0x67, 0x20, 0x46,
-        0x75>>
-
-    input =
-      <<0x54, 0x77, 0x6F, 0x20, 0x4F, 0x6E, 0x65, 0x20, 0x4E, 0x69, 0x6E, 0x65, 0x20, 0x54, 0x77,
-        0x6F>>
+    key = @sample_key
+    input = @sample_input
 
     cyphered = Rijndaex.cypher_blocks(key, input)
     assert Rijndaex.uncypher_blocks(key, cyphered) === input
+  end
+
+  test "async with same key returns the same as naive parser" do
+    key = @sample_key
+    input = @sample_input
+
+    cyphered_reference = Rijndaex.cypher_blocks(key, input, :naive)
+
+    assert Rijndaex.cypher_blocks(key, input, :same_key) == cyphered_reference
+  end
+
+  test "parallel uncypher returns original value" do
+    key = @sample_key
+    input = @sample_input
+
+    cyphered_reference = Rijndaex.cypher_blocks(key, input, :naive)
+
+    assert Rijndaex.uncypher_blocks(key, cyphered_reference, :multi_thread) == input
   end
 end
