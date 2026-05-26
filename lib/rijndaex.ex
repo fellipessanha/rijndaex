@@ -22,7 +22,12 @@ defmodule Rijndaex do
   alias Operations.{MixColumns, SubBytes, ShiftRow}
   import Operations, only: [add: 2]
 
-  def cypher_blocks(key, input) do
+  @type cypher_strategies() :: :naive | :ecb
+
+  @spec cypher_blocks(binary(), binary(), cypher_strategies) :: binary()
+  def cypher_blocks(key, input, strategy \\ :naive)
+
+  def cypher_blocks(key, input, :naive) do
     {:ok, parsed_input} = CypherInput.new(key, input)
     expanded_key = KeyExpansion.expand_key(key)
 
@@ -30,6 +35,25 @@ defmodule Rijndaex do
       block
       |> as_matrix()
       |> cypher_block(expanded_key, key)
+      |> :binary.list_to_bin()
+    end
+  end
+
+  def cypher_blocks(key, input, :ecb) do
+    {:ok, parsed_input} = CypherInput.new(key, input)
+    expanded_key = KeyExpansion.expand_key(key)
+
+    tasks =
+      for block <- parsed_input.blocks do
+        Task.async(fn ->
+          block
+          |> as_matrix()
+          |> cypher_block(expanded_key, key)
+        end)
+      end
+
+    for task <- tasks, into: <<>> do
+      Task.await(task)
       |> :binary.list_to_bin()
     end
   end
@@ -64,7 +88,10 @@ defmodule Rijndaex do
     |> apply_rounds(other_keys)
   end
 
-  def uncypher_blocks(key, input) do
+  @spec uncypher_blocks(binary(), binary(), cypher_strategies) :: binary()
+  def uncypher_blocks(key, input, strategy \\ :naive)
+
+  def uncypher_blocks(key, input, :naive) do
     {:ok, parsed_input} = CypherInput.new(key, input)
     expanded_key = KeyExpansion.expand_key(key) |> Enum.reverse()
 
@@ -72,6 +99,25 @@ defmodule Rijndaex do
       block
       |> as_matrix()
       |> uncypher_block(expanded_key, key)
+      |> :binary.list_to_bin()
+    end
+  end
+
+  def uncypher_blocks(key, input, :ecb) do
+    {:ok, parsed_input} = CypherInput.new(key, input)
+    expanded_key = KeyExpansion.expand_key(key) |> Enum.reverse()
+
+    tasks =
+      for block <- parsed_input.blocks do
+        Task.async(fn ->
+          block
+          |> as_matrix()
+          |> uncypher_block(expanded_key, key)
+        end)
+      end
+
+    for task <- tasks, into: <<>> do
+      Task.await(task)
       |> :binary.list_to_bin()
     end
   end
