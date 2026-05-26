@@ -22,6 +22,9 @@ defmodule Rijndaex do
   alias Operations.{MixColumns, SubBytes, ShiftRow}
   import Operations, only: [add: 2]
 
+  @type cypher_strategies() :: :naive | :ecb
+
+  @spec cypher_blocks(binary(), binary(), cypher_strategies) :: binary()
   def cypher_blocks(key, input, strategy \\ :naive)
 
   def cypher_blocks(key, input, :naive) do
@@ -36,7 +39,7 @@ defmodule Rijndaex do
     end
   end
 
-  def cypher_blocks(key, input, :same_key) do
+  def cypher_blocks(key, input, :ecb) do
     {:ok, parsed_input} = CypherInput.new(key, input)
     expanded_key = KeyExpansion.expand_key(key)
 
@@ -85,9 +88,10 @@ defmodule Rijndaex do
     |> apply_rounds(other_keys)
   end
 
-  def uncypher_blocks(key, input, strategy \\ :single_thread)
+  @spec uncypher_blocks(binary(), binary(), cypher_strategies) :: binary()
+  def uncypher_blocks(key, input, strategy \\ :naive)
 
-  def uncypher_blocks(key, input, :single_thread) do
+  def uncypher_blocks(key, input, :naive) do
     {:ok, parsed_input} = CypherInput.new(key, input)
     expanded_key = KeyExpansion.expand_key(key) |> Enum.reverse()
 
@@ -99,7 +103,7 @@ defmodule Rijndaex do
     end
   end
 
-  def uncypher_blocks(key, input, :multi_thread) do
+  def uncypher_blocks(key, input, :ecb) do
     {:ok, parsed_input} = CypherInput.new(key, input)
     expanded_key = KeyExpansion.expand_key(key) |> Enum.reverse()
 

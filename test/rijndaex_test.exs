@@ -64,7 +64,7 @@ defmodule RijndaexTest do
 
     cyphered_reference = Rijndaex.cypher_blocks(key, input, :naive)
 
-    assert Rijndaex.cypher_blocks(key, input, :same_key) == cyphered_reference
+    assert Rijndaex.cypher_blocks(key, input, :ecb) == cyphered_reference
   end
 
   test "parallel uncypher returns original value" do
@@ -73,6 +73,6 @@ defmodule RijndaexTest do
 
     cyphered_reference = Rijndaex.cypher_blocks(key, input, :naive)
 
-    assert Rijndaex.uncypher_blocks(key, cyphered_reference, :multi_thread) == input
+    assert Rijndaex.uncypher_blocks(key, cyphered_reference, :ecb) == input
   end
 end
