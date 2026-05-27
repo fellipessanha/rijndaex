@@ -21,42 +21,15 @@ defmodule Rijndaex do
 
   alias Operations.{MixColumns, SubBytes, ShiftRow}
   import Operations, only: [add: 2]
+  import Utils, only: [as_matrix: 1]
 
-  @type cypher_strategies() :: :naive | :ecb
+  @type cypher_strategies() :: :naive | :ecb | :cbc
 
-  @spec cypher_blocks(binary(), binary(), cypher_strategies) :: binary()
-  def cypher_blocks(key, input, strategy \\ :naive)
-
-  def cypher_blocks(key, input, :naive) do
-    {:ok, parsed_input} = CypherInput.new(key, input)
-    expanded_key = KeyExpansion.expand_key(key)
-
-    for block <- parsed_input.blocks, into: <<>> do
-      block
-      |> as_matrix()
-      |> cypher_block(expanded_key, key)
-      |> :binary.list_to_bin()
-    end
-  end
-
-  def cypher_blocks(key, input, :ecb) do
-    {:ok, parsed_input} = CypherInput.new(key, input)
-    expanded_key = KeyExpansion.expand_key(key)
-
-    tasks =
-      for block <- parsed_input.blocks do
-        Task.async(fn ->
-          block
-          |> as_matrix()
-          |> cypher_block(expanded_key, key)
-        end)
-      end
-
-    for task <- tasks, into: <<>> do
-      Task.await(task)
-      |> :binary.list_to_bin()
-    end
-  end
+  @spec cypher_blocks(binary(), binary(), cypher_strategies, keyword) :: binary()
+  def cypher_blocks(key, input, strategy \\ :naive, opts \\ [])
+  def cypher_blocks(key, input, :naive, _), do: Strategies.Naive.cypher_blocks(key, input)
+  def cypher_blocks(key, input, :ecb, _), do: Strategies.ECB.cypher_blocks(key, input)
+  def cypher_blocks(key, input, :cbc, _), do: Strategies.CBC.cypher_blocks(key, input)
 
   @doc """
   Encrypts a single 4×4 matrix block using the expanded key schedule.
@@ -90,65 +63,7 @@ defmodule Rijndaex do
 
   @spec uncypher_blocks(binary(), binary(), cypher_strategies) :: binary()
   def uncypher_blocks(key, input, strategy \\ :naive)
-
-  def uncypher_blocks(key, input, :naive) do
-    {:ok, parsed_input} = CypherInput.new(key, input)
-    expanded_key = KeyExpansion.expand_key(key) |> Enum.reverse()
-
-    for block <- parsed_input.blocks, into: <<>> do
-      block
-      |> as_matrix()
-      |> uncypher_block(expanded_key, key)
-      |> :binary.list_to_bin()
-    end
-  end
-
-  def uncypher_blocks(key, input, :ecb) do
-    {:ok, parsed_input} = CypherInput.new(key, input)
-    expanded_key = KeyExpansion.expand_key(key) |> Enum.reverse()
-
-    tasks =
-      for block <- parsed_input.blocks do
-        Task.async(fn ->
-          block
-          |> as_matrix()
-          |> uncypher_block(expanded_key, key)
-        end)
-      end
-
-    for task <- tasks, into: <<>> do
-      Task.await(task)
-      |> :binary.list_to_bin()
-    end
-  end
-
-  def uncypher_block(block, [last_expanded_key | expanded_keys], key) do
-    round_key = key |> as_matrix()
-
-    block
-    |> add(last_expanded_key)
-    |> ShiftRow.revert()
-    |> SubBytes.revert()
-    |> revert_rounds(expanded_keys)
-    |> add(round_key)
-  end
-
-  defp revert_rounds(block, []), do: block
-
-  defp revert_rounds(block, [round_key | other_keys]) do
-    block
-    |> add(round_key)
-    |> MixColumns.revert()
-    |> ShiftRow.revert()
-    |> SubBytes.revert()
-    |> revert_rounds(other_keys)
-  end
-
-  defp as_matrix(linear_input) when is_binary(linear_input) do
-    linear_input |> :binary.bin_to_list() |> as_matrix()
-  end
-
-  defp as_matrix(linear_input) when is_list(linear_input) do
-    Enum.chunk_every(linear_input, 4, 4, :discard)
-  end
+  def uncypher_blocks(key, input, :naive), do: Strategies.Naive.uncypher_blocks(key, input)
+  def uncypher_blocks(key, input, :ecb), do: Strategies.ECB.uncypher_blocks(key, input)
+  def uncypher_blocks(key, input, :cbc), do: Strategies.CBC.uncypher_blocks(key, input)
 end
