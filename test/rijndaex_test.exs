@@ -75,4 +75,13 @@ defmodule RijndaexTest do
 
     assert Rijndaex.uncypher_blocks(key, cyphered_reference, :ecb) == input
   end
+
+  test "CBC cyphers and decyphers multiblock input" do
+    key = @sample_key
+    input = @sample_input <> @sample_key
+
+    cyphered = Rijndaex.cypher_blocks(key, input, :cbc)
+    assert cyphered != input
+    assert Rijndaex.uncypher_blocks(key, cyphered, :cbc) == input
+  end
 end
